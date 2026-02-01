@@ -39,3 +39,8 @@ Thumbs.db
 # Backup files
 *.backup
 index.ts.backup
+
+# Release files
+*.tar.gz
+release-tmp/
+test-release/
