@@ -1,7 +1,7 @@
 {
   "name": "@tocharianou/elasticsearch-mcp",
   "description": "Elasticsearch MCP Server with full version support (ES 5.x-9.x) and comprehensive API access",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "mcpName": "io.github.tocharianou/elasticsearch",
   "license": "Apache-2.0",
   "author": "TocharianOU <tocharian139@protonmail.com>",
@@ -27,6 +27,7 @@
   ],
   "files": [
     "dist",
+    "logos",
     "NOTICE.txt",
     "LICENSE",
     "README.md"
@@ -42,7 +43,8 @@
     "test": "npm run build",
     "license-checker": "license-checker --production --onlyAllow='MIT;Apache-2.0;Apache1.1;ISC;BSD-3-Clause;BSD-2-Clause;0BSD;BlueOak-1.0.0;Unlicense'",
     "license-header": "./scripts/check-spdx",
-    "generate-notice": "node ./scripts/generate-notice.js"
+    "generate-notice": "node ./scripts/generate-notice.js",
+    "release": "npm run build && tar -czf elasticsearch-mcp-v$npm_package_version.tar.gz dist logos LICENSE NOTICE.txt README.md package.json"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.17.1",
