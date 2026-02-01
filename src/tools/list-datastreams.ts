@@ -136,7 +136,6 @@ export function registerListDataStreams(
             }
           } catch (batchError) {
             // If batch still fails, skip this batch and continue
-            console.error(`Failed to fetch stats for batch: ${batchError}`);
           }
         }
 
@@ -410,11 +409,6 @@ export function registerListDataStreams(
 
         return result;
       } catch (error) {
-        console.error(
-          `Failed to list data streams: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
         return {
           content: [
             {

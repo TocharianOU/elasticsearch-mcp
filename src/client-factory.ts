@@ -28,9 +28,7 @@ export async function createVersionedClient(
           // @ts-expect-error - ES 9 client may not be available yet
           const v9Module = await import('@elastic/elasticsearch-v9');
           ClientClass = v9Module.Client;
-          console.error('Using ES 9.x client');
         } catch (es9Error) {
-          console.warn(`ES 9.x client not available, using ES 8.x client as fallback`);
           clientPackage = '@elastic/elasticsearch-v8';
           const v8FallbackModule = await import('@elastic/elasticsearch-v8');
           ClientClass = v8FallbackModule.Client;
@@ -63,33 +61,19 @@ export async function createVersionedClient(
 
       default:
         // Unknown version (ES 10+) - fallback to latest available client (ES 9)
-        console.warn(
-          `⚠️  Elasticsearch ${major}.x is not explicitly supported yet.`
-        );
-        console.warn(
-          `   Attempting to use ES 9.x client (latest available) as fallback...`
-        );
-        
         clientPackage = '@elastic/elasticsearch-v9';
         try {
           // @ts-expect-error - ES 9 client may not be available yet
           const v9Module = await import('@elastic/elasticsearch-v9');
           ClientClass = v9Module.Client;
-          console.error(`✓ Using ES 9.x client for ES ${version.full}`);
         } catch (v9Error) {
           // ES 9 not available, fallback to ES 8
-          console.warn(
-            `   ES 9.x client not installed, falling back to ES 8.x client...`
-          );
           clientPackage = '@elastic/elasticsearch-v8';
           const v8Module = await import('@elastic/elasticsearch-v8');
           ClientClass = v8Module.Client;
-          console.error(`✓ Using ES 8.x client for ES ${version.full} (fallback)`);
         }
         break;
     }
-
-    console.error(`Using ${clientPackage} for ES ${version.full}`);
 
     // Create client instance
     const client = new ClientClass(options);
@@ -121,7 +105,6 @@ export async function verifyConnection(client: ESClient): Promise<boolean> {
     await client.info();
     return true;
   } catch (error) {
-    console.error('Client verification failed:', error);
     return false;
   }
 }

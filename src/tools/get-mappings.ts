@@ -254,11 +254,6 @@ export function registerGetMappings(
 
         return result;
       } catch (error) {
-        console.error(
-          `Failed to get mappings: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
         return {
           content: [
             {

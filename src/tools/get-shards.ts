@@ -193,11 +193,6 @@ export function registerGetShards(
         };
 
       } catch (error) {
-        console.error(
-          `Failed to get shard information: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
         return {
           content: [
             {
