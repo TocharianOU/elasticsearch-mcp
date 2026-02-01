@@ -20,7 +20,6 @@ export function calculateTokens(text: string, model: TiktokenModel = "gpt-4"): n
     encoding.free();
     return tokenCount;
   } catch (error) {
-    console.error("Error calculating tokens:", error);
     // Fallback to rough estimation if tiktoken fails: ~4 characters per token
     return Math.ceil(text.length / 4);
   }

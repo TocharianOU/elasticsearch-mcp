@@ -91,12 +91,6 @@ export function registerExecuteApi(
 
         return resultContent;
       } catch (error) {
-        console.error(
-          `Elasticsearch API request failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-        
         // Extract and format error details if available
         let errorDetails = "";
         if (error instanceof Error && 'meta' in error && error.meta) {

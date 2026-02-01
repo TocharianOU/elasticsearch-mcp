@@ -80,8 +80,6 @@ export async function createElasticsearchMcpServer(
   // Get token limit configuration
   const maxTokenCall = parseInt(process.env.MAX_TOKEN_CALL || "20000", 10);
 
-  console.error("Detecting Elasticsearch version...");
-
   // Step 1: Detect ES version using native HTTP (no client dependency)
   const versionInfo = await detectESVersion(url, {
     username,
@@ -90,16 +88,8 @@ export async function createElasticsearchMcpServer(
     rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
   });
 
-  console.error(`\n${'='.repeat(60)}`);
-  console.error(`Connected to: ${formatVersionInfo(versionInfo)}`);
-  console.error(`${'='.repeat(60)}\n`);
-
   // Step 2: Create capability manager
   const capabilityManager = new CapabilityManager(versionInfo);
-
-  // Print capability summary
-  console.error(capabilityManager.getFeatureSummary());
-  console.error();
 
   // Step 3: Build client options
   const clientOptions: ClientOptions = {
@@ -122,7 +112,7 @@ export async function createElasticsearchMcpServer(
       const ca = fs.readFileSync(caCert);
       clientOptions.tls = { ca };
     } catch (error) {
-      console.error(
+      throw new Error(
         `Failed to read certificate file: ${
           error instanceof Error ? error.message : String(error)
         }`
@@ -137,26 +127,21 @@ export async function createElasticsearchMcpServer(
   }
 
   // Step 4: Create version-specific client
-  console.error("Loading appropriate Elasticsearch client...");
   const esClient = await createVersionedClient(versionInfo, clientOptions);
 
   // Step 5: Verify connection
-  console.error("Verifying connection...");
   const connected = await verifyConnection(esClient);
   if (!connected) {
     throw new Error("Failed to verify connection to Elasticsearch");
   }
-  console.error("Connection verified ✓\n");
 
   // Step 6: Create MCP server
   const server = new McpServer({
     name: "elasticsearch-mcp",
-    version: "0.6.2",
+    version: "0.6.3",
   });
 
   // Step 7: Conditional tool registration
-  console.error("Registering tools...");
-  
   const registeredTools: string[] = [];
   const skippedTools: string[] = [];
 
@@ -183,14 +168,6 @@ export async function createElasticsearchMcpServer(
   } else {
     skippedTools.push("list_data_streams (requires ES 7.9+)");
   }
-
-  console.error(`✓ Registered tools: ${registeredTools.join(", ")}`);
-  
-  if (skippedTools.length > 0) {
-    console.error(`⚠ Skipped tools: ${skippedTools.join(", ")}`);
-  }
-
-  console.error();
 
   return server;
 }

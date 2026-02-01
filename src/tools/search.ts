@@ -150,11 +150,6 @@ export function registerSearch(
 
         return resultContent;
       } catch (error) {
-        console.error(
-          `Search failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
         return {
           content: [
             {

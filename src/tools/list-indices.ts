@@ -310,11 +310,6 @@ export function registerListIndices(
         };
 
       } catch (error) {
-        console.error(
-          `Failed to list indices: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
         return {
           content: [
             {
