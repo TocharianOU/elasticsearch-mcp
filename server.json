@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.tocharianou/elasticsearch",
-  "description": "Elasticsearch MCP Server with full version support (ES 5.x-9.x) and comprehensive API access. Focused on security analysis, threat detection, and incident investigation.",
+  "description": "Elasticsearch MCP Server with multi-version support (ES 5.x-9.x) and comprehensive API access",
   "title": "Elasticsearch",
   "websiteUrl": "https://github.com/TocharianOU/elasticsearch-mcp",
   "repository": {
