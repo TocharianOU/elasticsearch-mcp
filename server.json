@@ -8,13 +8,13 @@
     "url": "https://github.com/TocharianOU/elasticsearch-mcp",
     "source": "github"
   },
-  "version": "0.7.1",
+  "version": "0.7.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@tocharianou/elasticsearch-mcp",
-      "version": "0.7.1",
+      "version": "0.7.0",
       "transport": {
         "type": "stdio"
       },
@@ -71,7 +71,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@tocharianou/elasticsearch-mcp",
-      "version": "0.7.1",
+      "version": "0.7.0",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:{MCP_HTTP_PORT}/mcp"
@@ -151,7 +151,7 @@
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
       "tool": "manual",
-      "version": "0.7.1",
+      "version": "0.7.0",
       "features": {
         "multi_version_support": "ES 5.x-9.x",
         "transport_modes": ["stdio", "http"],
