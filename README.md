@@ -112,7 +112,28 @@ The Elasticsearch MCP Server supports the following configuration options:
    npx @tocharianou/elasticsearch-mcp
    ```
 
-#### Option 2: Source Installation
+#### Option 2: GitHub Release (Standalone Package)
+
+1. **Download release package**
+   - Go to [GitHub Releases](https://github.com/TocharianOU/elasticsearch-mcp/releases)
+   - Download the latest `.tar.gz` file and its checksum files (`.sha256` and `.sha512`)
+
+2. **Verify package integrity**
+   ```bash
+   shasum -a 256 -c elasticsearch-mcp-v*.tar.gz.sha256
+   # Should output: elasticsearch-mcp-v*.tar.gz: OK
+   ```
+
+3. **Extract and use**
+   ```bash
+   mkdir elasticsearch-mcp && cd elasticsearch-mcp
+   tar -xzf ../elasticsearch-mcp-v*.tar.gz
+   
+   # Run with your Elasticsearch credentials
+   ES_URL=https://localhost:9200 ES_API_KEY=your-key node dist/index.js
+   ```
+
+#### Option 3: Source Installation
 
 1. **Clone the repository**
    ```bash
@@ -315,6 +336,25 @@ We welcome contributions from the community! For details on how to contribute, p
 
 > [!WARNING]
 > Avoid using cluster-admin privileges. Create dedicated API keys with limited scope and apply fine-grained access control at the index level to prevent unauthorized data access.
+
+### Package Integrity Verification
+
+When downloading release packages, always verify checksums to ensure integrity:
+
+```bash
+# Verify SHA256 checksum
+shasum -a 256 -c elasticsearch-mcp-vX.Y.Z.tar.gz.sha256
+
+# Verify SHA512 checksum
+shasum -a 512 -c elasticsearch-mcp-vX.Y.Z.tar.gz.sha512
+```
+
+This protects against:
+- Corrupted downloads
+- Tampered packages
+- Man-in-the-middle attacks
+
+### Elasticsearch Access Control
 
 You can create a dedicated Elasticsearch API key with minimal permissions to control access to your data:
 

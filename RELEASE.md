@@ -11,7 +11,10 @@ This project supports creating **standalone release packages** that include all 
 npm run release
 ```
 
-This will generate a tarball: `elasticsearch-mcp-vX.Y.Z.tar.gz`
+This will generate:
+- `elasticsearch-mcp-vX.Y.Z.tar.gz` - The release package
+- `elasticsearch-mcp-vX.Y.Z.tar.gz.sha256` - SHA256 checksum
+- `elasticsearch-mcp-vX.Y.Z.tar.gz.sha512` - SHA512 checksum
 
 ### What's Included
 
@@ -21,6 +24,24 @@ The release package contains:
 - ✅ Logos and assets
 - ✅ Documentation (`README.md`, `LICENSE`, `NOTICE.txt`)
 - ✅ Configuration files (`package.json`, `server.json`)
+- ✅ Checksum files (`*.sha256`, `*.sha512`) for integrity verification
+
+### Verifying Package Integrity
+
+Before extracting the package, verify its integrity using the provided checksums:
+
+```bash
+# Verify SHA256 checksum
+shasum -a 256 -c elasticsearch-mcp-vX.Y.Z.tar.gz.sha256
+
+# Verify SHA512 checksum
+shasum -a 512 -c elasticsearch-mcp-vX.Y.Z.tar.gz.sha512
+```
+
+If the verification succeeds, you'll see:
+```
+elasticsearch-mcp-vX.Y.Z.tar.gz: OK
+```
 
 ### Usage
 
@@ -90,9 +111,10 @@ Before creating a release:
 4. ✅ Build: `npm run build`
 5. ✅ Create release package: `npm run release`
 6. ✅ Test the package (extract and run)
-7. ✅ Create git tag: `git tag vX.Y.Z`
-8. ✅ Push tag: `git push origin vX.Y.Z`
-9. ✅ Upload tarball to GitHub release
+7. ✅ Verify checksums are generated
+8. ✅ Create git tag: `git tag vX.Y.Z`
+9. ✅ Push tag: `git push origin vX.Y.Z`
+10. ✅ Upload tarball and checksum files to GitHub release
 
 ### Alternative: NPM-only Package
 
@@ -113,3 +135,24 @@ The release script automatically:
 - Cleans up unnecessary metadata
 
 Typical package size: ~50-100MB (depending on dependencies)
+
+### Security Best Practices
+
+**Always verify checksums before using release packages:**
+
+1. **Download all files:**
+   - `elasticsearch-mcp-vX.Y.Z.tar.gz`
+   - `elasticsearch-mcp-vX.Y.Z.tar.gz.sha256`
+   - `elasticsearch-mcp-vX.Y.Z.tar.gz.sha512`
+
+2. **Verify integrity:**
+   ```bash
+   shasum -a 256 -c elasticsearch-mcp-vX.Y.Z.tar.gz.sha256
+   ```
+
+3. **Only proceed if verification succeeds**
+
+This ensures:
+- The package hasn't been corrupted during download
+- The package hasn't been tampered with
+- You're using the authentic release from the maintainer

@@ -42,5 +42,7 @@ index.ts.backup
 
 # Release files
 *.tar.gz
+*.sha256
+*.sha512
 release-tmp/
 test-release/
