@@ -12,6 +12,7 @@ import {
   rewriteDslFields,
 } from "../lint/query-lint.js";
 import { adviseOnIndexName, enrichIndexError } from "../lint/index-conventions.js";
+import { unwrapEsResponse, extractMappingProperties } from "../es-response.js";
 
 export function registerSearch(
   server: McpServer,
@@ -98,38 +99,50 @@ export function registerSearch(
       }
       try {
         // Get mappings to identify text fields for highlighting
-        const mappingResponse = await esClient.indices.getMapping({
-          index,
-        });
+        const mappingResponse = unwrapEsResponse<Record<string, any>>(
+          await esClient.indices.getMapping({
+            index,
+          })
+        );
 
-        const indexMappings = mappingResponse[index]?.mappings || {};
+        const properties = extractMappingProperties(mappingResponse[index]?.mappings);
 
-        const searchRequest: estypes.SearchRequest = {
-          index,
+        const bodyFields: Record<string, unknown> = {
           ...queryBody,
           timeout: '30s' // Set timeout for specific queries
         };
 
         // Always do highlighting
-        if (indexMappings.properties) {
+        if (properties) {
           const textFields: Record<string, estypes.SearchHighlightField> = {};
 
           for (const [fieldName, fieldData] of Object.entries(
-            indexMappings.properties
+            properties as Record<string, any>
           )) {
             if (fieldData.type === "text" || "dense_vector" in fieldData) {
               textFields[fieldName] = {};
             }
           }
 
-          searchRequest.highlight = {
+          bodyFields.highlight = {
             fields: textFields,
             pre_tags: ["<em>"],
             post_tags: ["</em>"],
           };
         }
 
-        const result = await esClient.search(searchRequest);
+        // ES 8+ clients accept body fields flattened alongside `index`; the
+        // aliased v5/v6/v7 clients reject that shape and require the legacy
+        // `{ index, body: {...} }` envelope instead.
+        const searchRequest = (
+          esMajor >= 8
+            ? { index, ...bodyFields }
+            : { index, body: bodyFields }
+        ) as estypes.SearchRequest;
+
+        const result = unwrapEsResponse<estypes.SearchResponse>(
+          await esClient.search(searchRequest)
+        );
 
         // Extract the 'from' parameter from queryBody, defaulting to 0 if not provided
         const from = queryBody.from || 0;

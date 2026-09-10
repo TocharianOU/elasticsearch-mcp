@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Client } from "@elastic/elasticsearch";
 import { checkTokenLimit, calculateTokens } from "../token-limiter.js";
+import { unwrapEsResponse, esErrorMentions } from "../es-response.js";
 import { 
   generateIndexSummary, 
   formatSummaryText,
@@ -70,13 +71,26 @@ export function registerListIndices(
       try {
         const AUTO_SUMMARY_THRESHOLD = 200;
 
-        // Fetch indices with optional pattern (including hidden indices)
-        const response = await esClient.cat.indices({ 
-          format: "json",
-          index: pattern || "*",
-          expand_wildcards: "all", // Include open, closed, and hidden indices
-          h: "index,health,status,docs.count,store.size,pri.store.size"
-        });
+        // Fetch indices with optional pattern (including hidden indices).
+        // `expand_wildcards` on `_cat/indices` isn't recognized before ES 7.x;
+        // fall back to the plain call when a cluster rejects it.
+        let rawResponse;
+        try {
+          rawResponse = await esClient.cat.indices({
+            format: "json",
+            index: pattern || "*",
+            expand_wildcards: "all", // Include open, closed, and hidden indices
+            h: "index,health,status,docs.count,store.size,pri.store.size"
+          });
+        } catch (error) {
+          if (!esErrorMentions(error, "expand_wildcards")) throw error;
+          rawResponse = await esClient.cat.indices({
+            format: "json",
+            index: pattern || "*",
+            h: "index,health,status,docs.count,store.size,pri.store.size"
+          });
+        }
+        const response = unwrapEsResponse<any[]>(rawResponse);
 
         let indicesInfo = response.map((index: any) => ({
           index: index.index || index['index'],

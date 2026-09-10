@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Client } from "@elastic/elasticsearch";
 import { checkTokenLimit, calculateTokens } from "../token-limiter.js";
+import { unwrapEsResponse, extractMappingProperties } from "../es-response.js";
 import {
   flattenMapping,
   calculateMappingStats,
@@ -78,9 +79,11 @@ export function registerGetMappings(
     }) => {
       try {
         // Fetch mappings
-        const mappingResponse = await esClient.indices.getMapping({
-          index,
-        });
+        const mappingResponse = unwrapEsResponse<Record<string, any>>(
+          await esClient.indices.getMapping({
+            index,
+          })
+        );
 
         const indexNames = Object.keys(mappingResponse);
 
@@ -103,7 +106,7 @@ export function registerGetMappings(
 
         for (const indexName of indexNames) {
           const indexMapping = mappingResponse[indexName];
-          const properties = indexMapping?.mappings?.properties || {};
+          const properties = extractMappingProperties(indexMapping?.mappings);
 
           // Flatten mapping
           const { fields, maxDepth } = flattenMapping(properties);
