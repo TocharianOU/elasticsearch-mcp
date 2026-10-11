@@ -46,3 +46,6 @@ index.ts.backup
 *.sha512
 release-tmp/
 test-release/
+
+# mcp-publisher login tokens
+.mcpregistry_*
