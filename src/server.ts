@@ -83,12 +83,26 @@ export async function createElasticsearchMcpServer(
   // Get token limit configuration
   const maxTokenCall = parseInt(process.env.MAX_TOKEN_CALL || "20000", 10);
 
+  let ca: Buffer | undefined;
+  if (caCert) {
+    try {
+      ca = fs.readFileSync(caCert);
+    } catch (error) {
+      throw new Error(
+        `Failed to read certificate file: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
   // Step 1: Detect ES version using native HTTP (no client dependency)
   const versionInfo = await detectESVersion(url, {
     username,
     password,
     apiKey,
     rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
+    ca,
   });
 
   // Step 2: Create capability manager
@@ -110,17 +124,8 @@ export async function createElasticsearchMcpServer(
   }
 
   // Set up SSL/TLS certificate if provided
-  if (caCert) {
-    try {
-      const ca = fs.readFileSync(caCert);
-      clientOptions.tls = { ca };
-    } catch (error) {
-      throw new Error(
-        `Failed to read certificate file: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
+  if (ca) {
+    clientOptions.tls = { ca };
   }
 
   // Handle self-signed certificates

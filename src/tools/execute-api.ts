@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Client } from "@elastic/elasticsearch";
 import { checkTokenLimit } from "../token-limiter.js";
+import { unwrapEsResponse } from "../es-response.js";
 
 export function registerExecuteApi(
   server: McpServer,
@@ -60,7 +61,7 @@ export function registerExecuteApi(
         };
 
         // Execute the request
-        const response = await esClient.transport.request(options);
+        const response = unwrapEsResponse(await esClient.transport.request(options));
 
         const resultContent = {
           content: [

@@ -8,6 +8,28 @@ import type { ESVersionInfo } from './version-detector.js';
 export type ESClient = any; // Use any to avoid type conflicts between versions
 
 /**
+ * Options are built in the v8 client's shape. The v5/v6/v7 clients take TLS
+ * settings as `ssl` (a `tls` key is ignored, so a custom CA never applies),
+ * and the v5 client reads basic auth only from the node URL.
+ */
+export function adaptClientOptions(major: number, options: ClientOptions): Record<string, any> {
+  if (major < 5 || major > 7) return options;
+
+  const { tls, ...adapted } = options as Record<string, any>;
+  if (tls) adapted.ssl = tls;
+
+  const { username, password } = adapted.auth ?? {};
+  if (major === 5 && username && password && typeof adapted.node === 'string') {
+    const nodeUrl = new URL(adapted.node);
+    nodeUrl.username = encodeURIComponent(username);
+    nodeUrl.password = encodeURIComponent(password);
+    adapted.node = nodeUrl.toString();
+    delete adapted.auth;
+  }
+  return adapted;
+}
+
+/**
  * Create Elasticsearch client based on detected version
  */
 export async function createVersionedClient(
@@ -76,7 +98,7 @@ export async function createVersionedClient(
     }
 
     // Create client instance
-    const client = new ClientClass(options);
+    const client = new ClientClass(adaptClientOptions(major, options));
 
     return client;
   } catch (error) {

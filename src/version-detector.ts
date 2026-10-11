@@ -44,6 +44,7 @@ export async function detectESVersion(
     apiKey?: string;
     timeout?: number;
     rejectUnauthorized?: boolean;
+    ca?: Buffer;
   }
 ): Promise<ESVersionInfo> {
   const timeoutMs = options?.timeout || 10000;
@@ -72,6 +73,10 @@ export async function detectESVersion(
         `${options.username}:${options.password}`
       ).toString('base64');
       requestOptions.headers['Authorization'] = `Basic ${auth}`;
+    }
+
+    if (isHttps && options?.ca) {
+      requestOptions.ca = options.ca;
     }
 
     // Handle self-signed certificates
