@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Client } from "@elastic/elasticsearch";
 import { calculateTokens } from "../token-limiter.js";
+import { unwrapEsResponse } from "../es-response.js";
 import {
   analyzeShardHealth,
   formatShardSummary,
@@ -65,8 +66,8 @@ export function registerGetShards(
           params.index = index;
         }
 
-        const response = await esClient.cat.shards(params);
-        
+        const response = unwrapEsResponse<any>(await esClient.cat.shards(params));
+
         // Convert response to array format for analysis
         const shardData = Array.isArray(response) ? response : [response];
         

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Client } from "@elastic/elasticsearch";
 import { checkTokenLimit, calculateTokens } from "../token-limiter.js";
+import { unwrapEsResponse } from "../es-response.js";
 import {
   generateDataStreamSummary,
   formatMinimal,
@@ -81,9 +82,11 @@ export function registerListDataStreams(
     }) => {
       try {
         // Fetch data streams
-        const dsResponse = await esClient.indices.getDataStream({
-          name: pattern || "*",
-        });
+        const dsResponse = unwrapEsResponse<any>(
+          await esClient.indices.getDataStream({
+            name: pattern || "*",
+          })
+        );
 
         const dataStreams = dsResponse.data_streams || [];
 
@@ -118,11 +121,13 @@ export function registerListDataStreams(
           
           try {
             // Get health and stats for this batch
-            const indicesStats = await esClient.cat.indices({
-              index: batch.join(","),
-              format: "json",
-              h: "index,health,status,docs.count,store.size,creation.date.string",
-            });
+            const indicesStats = unwrapEsResponse<any[]>(
+              await esClient.cat.indices({
+                index: batch.join(","),
+                format: "json",
+                h: "index,health,status,docs.count,store.size,creation.date.string",
+              })
+            );
 
             for (const idx of indicesStats as any[]) {
               indexInfoMap.set(idx.index, {
