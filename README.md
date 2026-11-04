@@ -122,6 +122,8 @@ The Elasticsearch MCP Server supports the following configuration options:
 | `MCP_TRANSPORT`     | Transport mode selection                         | `stdio`   | `stdio`, `http` |
 | `MCP_HTTP_PORT`     | HTTP server port (when using HTTP transport)     | `3000`    | 1-65535         |
 | `MCP_HTTP_HOST`     | HTTP server host (when using HTTP transport)     | `localhost` | Any valid host  |
+| `MCP_BEARER_TOKEN`  | HTTP mode: require `Authorization: Bearer <token>` on `/mcp` | - | Any string |
+| `MCP_ALLOWED_HOSTS` | HTTP mode: extra hostnames accepted in the `Host` header | - | Comma-separated |
 
 **Transport Mode Details:**
 - **Stdio mode** (default): For Claude Desktop and local MCP clients
@@ -281,10 +283,11 @@ ES_USERNAME=elastic \
 ES_PASSWORD=your_pass \
 npx @tocharianou/elasticsearch-mcp
 
-# Or with custom port and host
+# Or listening on all interfaces, with a bearer token
 MCP_TRANSPORT=http \
 MCP_HTTP_PORT=9000 \
 MCP_HTTP_HOST=0.0.0.0 \
+MCP_BEARER_TOKEN="$(openssl rand -hex 32)" \
 ES_URL=your-elasticsearch-url \
 ES_USERNAME=elastic \
 ES_PASSWORD=your_pass \
@@ -302,6 +305,13 @@ Any MCP-capable client (or plain JSON-RPC over HTTP) can talk to the `/mcp`
 endpoint: initialize once, keep the returned `mcp-session-id` header on
 subsequent `tools/list` / `tools/call` requests. Use `/health` for liveness
 checks.
+
+**Securing HTTP mode.** Every session on `/mcp` acts with the Elasticsearch credentials the server was started with, so treat the endpoint as sensitive:
+
+- By default the server listens on `localhost` only and rejects requests whose `Host` header is not a loopback name (DNS rebinding protection).
+- To accept remote clients, set `MCP_BEARER_TOKEN`. Clients must then send `Authorization: Bearer <token>` on every `/mcp` request. `/health` stays open and does not reveal the Elasticsearch URL.
+- Binding to a non-loopback address (`MCP_HTTP_HOST=0.0.0.0`) without `MCP_BEARER_TOKEN` logs a warning at startup: anyone who can reach the port can use your Elasticsearch credentials.
+- Behind a reverse proxy that forwards its public `Host` header to a localhost-bound server, list that hostname in `MCP_ALLOWED_HOSTS`.
 
 ## Available Tools
 

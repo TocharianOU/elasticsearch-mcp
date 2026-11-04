@@ -37,7 +37,7 @@ export function registerSearch(
         .describe("Name of the Elasticsearch index to search"),
 
       queryBody: z
-        .record(z.any())
+        .record(z.string(), z.any())
         .refine(
           (val) => {
             try {

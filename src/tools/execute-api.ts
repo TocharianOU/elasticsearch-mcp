@@ -23,15 +23,15 @@ export function registerExecuteApi(
         .min(1)
         .describe("The API endpoint path (e.g., '_search', 'my_index/_search', '_cluster/health')"),
       params: z
-        .record(z.any())
+        .record(z.string(), z.any())
         .optional()
         .describe("Optional URL parameters for the request"),
       body: z
-        .record(z.any())
+        .record(z.string(), z.any())
         .optional()
         .describe("Optional request body as a JavaScript object"),
       headers: z
-        .record(z.string())
+        .record(z.string(), z.string())
         .optional()
         .describe("Optional HTTP headers for the request"),
       break_token_rule: z

@@ -7,9 +7,11 @@
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { hostHeaderValidation } from "@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js";
 import express from "express";
 import { randomUUID } from "crypto";
 import { createElasticsearchMcpServer, ElasticsearchConfig } from "./src/server.js";
+import { allowedHostnames, bearerAuth, isLoopbackHost } from "./src/http-auth.js";
 
 const config: ElasticsearchConfig = {
   url: process.env.ES_URL || "",
@@ -38,12 +40,27 @@ async function main() {
 
       // Health check endpoint
       app.get('/health', (req, res) => {
-        res.json({ 
-          status: 'ok', 
-          transport: 'streamable-http',
-          elasticsearch_url: config.url
-        });
+        res.json({ status: 'ok', transport: 'streamable-http' });
       });
+
+      // Every /mcp session acts with the configured Elasticsearch credentials, so
+      // the endpoint is guarded: Host validation stops DNS rebinding against a
+      // loopback bind, and the bearer token authenticates remote clients.
+      const bearerToken = process.env.MCP_BEARER_TOKEN?.trim();
+      const hostnames = allowedHostnames(httpHost, process.env.MCP_ALLOWED_HOSTS);
+      if (hostnames) {
+        app.use('/mcp', hostHeaderValidation(hostnames));
+      }
+      if (bearerToken) {
+        app.use('/mcp', bearerAuth(bearerToken));
+        process.stderr.write(`HTTP mode: bearer token authentication enabled\n`);
+      } else if (!isLoopbackHost(httpHost)) {
+        process.stderr.write(
+          `WARNING: HTTP mode is listening on ${httpHost} without MCP_BEARER_TOKEN. ` +
+          `Anyone who can reach this port can use the configured Elasticsearch credentials. ` +
+          `Set MCP_BEARER_TOKEN, or bind to localhost.\n`
+        );
+      }
 
       // MCP endpoint - POST for JSON-RPC requests
       app.post('/mcp', async (req, res) => {
