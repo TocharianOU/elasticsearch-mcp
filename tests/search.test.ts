@@ -82,6 +82,16 @@ describe("cross-cluster field capabilities and completeness", () => {
     await handler(request);
     expect(search).toHaveBeenCalledOnce();
   });
+  it("reports an unknown total when Elasticsearch omits it", async () => {
+    const { handler } = remoteSetup({ result: { hits: { hits: [{ _source: { message: "found" } }] } } });
+    const result = await handler(request);
+    expect(result.content.some((item: any) => item.text.includes("Total results: unknown, showing 1"))).toBe(true);
+  });
+  it("reports a true zero total", async () => {
+    const { handler } = remoteSetup({ result: { hits: { total: { value: 0, relation: "eq" }, hits: [] } } });
+    const result = await handler(request);
+    expect(result.content.some((item: any) => item.text.includes("Total results: 0, showing 0"))).toBe(true);
+  });
   it("warns about timeouts, failed shards, skipped clusters and lower-bound totals", async () => {
     const { handler } = remoteSetup({ result: { timed_out: true, _shards: { failed: 2 }, _clusters: { skipped: 1, partial: 1, failed: 0 }, hits: { total: { value: 10, relation: "gte" }, hits: [] } } });
     const result = await handler(request);

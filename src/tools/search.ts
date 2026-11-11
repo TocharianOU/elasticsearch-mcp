@@ -204,7 +204,7 @@ export function registerSearch(
           text: `Total results: ${
             typeof result.hits.total === "number"
               ? result.hits.total
-              : result.hits.total?.value || 0
+              : result.hits.total?.value ?? "unknown"
           }, showing ${result.hits.hits.length} from position ${from}`,
         };
 
