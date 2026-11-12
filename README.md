@@ -320,6 +320,14 @@ checks.
 > `es_search` and `esql_query` accept `skip_lint: true` to bypass the harness
 > validation for edge cases (e.g. runtime fields defined outside the query).
 
+`es_search` includes each hit's `_index` and `_id` when available, along with
+full `_source` values, highlighted excerpts, and a separate `fields` object.
+This preserves values requested through `fields`, `docvalue_fields`,
+`stored_fields`, or `script_fields`, including when `_source` is disabled.
+The search timeout defaults to `30s`; an explicit `queryBody.timeout` is passed
+through unchanged. The Elasticsearch client's transport timeout is a separate
+limit (currently 60 seconds).
+
 ### ES|QL Query Tool (`esql_query`)
 
 ES|QL is Elasticsearch's modern pipe-based query language, ideal for analytics and data exploration without complex JSON DSL.

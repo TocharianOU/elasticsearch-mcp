@@ -126,7 +126,9 @@ export function registerSearch(
 
         const bodyFields: Record<string, unknown> = {
           ...queryBody,
-          timeout: '30s' // Set timeout for specific queries
+          // Keep the bounded default, but respect the caller's search timeout.
+          // The client's transport timeout remains a separate limit.
+          timeout: queryBody.timeout ?? '30s'
         };
 
         // Highlight only when mappings are available
@@ -181,6 +183,11 @@ export function registerSearch(
 
           let content = "";
 
+          // Preserve hit identity when searching aliases, multiple indices, or
+          // remote clusters; these values are metadata, not part of _source.
+          if (hit._index !== undefined) content += `_index: ${JSON.stringify(hit._index)}\n`;
+          if (hit._id !== undefined) content += `_id: ${JSON.stringify(hit._id)}\n`;
+
           for (const [field, highlights] of Object.entries(highlightedFields)) {
             if (highlights && highlights.length > 0) {
               content += `${field} (highlighted): ${highlights.join(
@@ -191,6 +198,14 @@ export function registerSearch(
 
           for (const [field, value] of Object.entries(sourceData)) {
             content += `${field}: ${JSON.stringify(value)}\n`;
+          }
+
+          // fields/docvalue_fields/stored_fields/script_fields return values
+          // under hit.fields, including when _source is disabled. Keep that
+          // object separate so arrays and formatted values are not confused
+          // with the original source values for the same field names.
+          if (hit.fields && Object.keys(hit.fields).length > 0) {
+            content += `fields: ${JSON.stringify(hit.fields)}\n`;
           }
 
           return {

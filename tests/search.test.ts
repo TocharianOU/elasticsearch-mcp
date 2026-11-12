@@ -1,18 +1,79 @@
 import { describe, expect, it, vi } from "vitest";
 import { registerSearch } from "../src/tools/search.js";
 
-function setup(mappingError?: Error) {
+function setup(mappingError?: Error, esMajor = 8) {
   let handler: any;
   const server = { tool: (...args: any[]) => { handler = args[args.length - 1]; } };
   const getMapping = mappingError
     ? vi.fn().mockRejectedValue(mappingError)
     : vi.fn().mockResolvedValue({ "test-index": { mappings: { properties: { message: { type: "text" } } } } });
   const search = vi.fn().mockResolvedValue({ hits: { total: { value: 1 }, hits: [{ _source: { message: "found" } }] } });
-  registerSearch(server as any, { indices: { getMapping }, search } as any, 100000);
+  registerSearch(server as any, { indices: { getMapping }, search } as any, 100000, undefined, esMajor);
   return { handler, search };
 }
 
 const request = { index: "test-index", queryBody: { query: { match_all: {} } }, skip_lint: true, break_token_rule: false };
+
+describe("es_search request and hit preservation", () => {
+  it.each([7, 8])("keeps caller timeouts and the default in the ES %i request shape", async (esMajor) => {
+    const { handler, search } = setup(undefined, esMajor);
+    for (const timeout of [undefined, "5s", "60s", 0]) {
+      const queryBody = timeout === undefined ? request.queryBody : { ...request.queryBody, timeout };
+      await handler({ ...request, queryBody });
+      const sent = search.mock.calls.at(-1)![0];
+      const body = esMajor >= 8 ? sent : sent.body;
+      expect(body.timeout).toBe(timeout ?? "30s");
+      expect(body.query).toEqual(request.queryBody.query);
+      expect(sent.index).toBe(request.index);
+      expect(queryBody).not.toHaveProperty("highlight");
+      if (timeout === undefined) expect(queryBody).not.toHaveProperty("timeout");
+    }
+  });
+
+  it.each(["fields", "docvalue_fields", "stored_fields", "script_fields"])("returns %s values with _source disabled", async (option) => {
+    const { handler, search } = setup();
+    const fields = { "user.id": ["user-42"], amount: [12.5, 25], "@timestamp": ["2026-01-01T00:00:00Z"] };
+    search.mockResolvedValue({ hits: { total: { value: 1, relation: "eq" }, hits: [{ _index: "orders-000001", _id: "42", fields }] } });
+    const selection = option === "script_fields" ? { amount: { script: "1 + 1" } } : Object.keys(fields);
+    const result = await handler({ ...request, queryBody: { ...request.queryBody, _source: false, [option]: selection, highlight: { fields: {} } } });
+    const output = result.content.map((item: any) => item.text).join("\n");
+    expect(output).toContain(`fields: ${JSON.stringify(fields)}`);
+    expect(output).toContain('_index: "orders-000001"');
+    expect(output).toContain('_id: "42"');
+    expect(search.mock.calls[0][0]).toEqual(expect.objectContaining({ _source: false, [option]: selection }));
+  });
+
+  it("keeps source values, highlighted excerpts, and returned fields distinct", async () => {
+    const { handler, search } = setup();
+    search.mockResolvedValue({ hits: { total: { value: 1, relation: "eq" }, hits: [{
+      _index: "orders-000001", _id: "42",
+      _source: { message: "prefix matched suffix", price: 12.5 },
+      highlight: { message: ["<em>matched</em>"] },
+      fields: { message: ["prefix matched suffix"], price: ["12.50"], nested: [{ tags: ["a", "b"] }] },
+    }] } });
+    const result = await handler(request);
+    const output = result.content.map((item: any) => item.text).join("\n");
+    expect(output).toContain('message: "prefix matched suffix"');
+    expect(output).toContain("message (highlighted): <em>matched</em>");
+    expect(output).toContain("price: 12.5");
+    expect(output).toContain('fields: {"message":["prefix matched suffix"],"price":["12.50"],"nested":[{"tags":["a","b"]}]}');
+  });
+
+  it("distinguishes otherwise identical hits by index and document ID", async () => {
+    const { handler, search } = setup();
+    search.mockResolvedValue({ hits: { total: { value: 2, relation: "eq" }, hits: [
+      { _index: "east:orders-000001", _id: "42", _source: { message: "same" } },
+      { _index: "west:orders-000001", _id: "84", _source: { message: "same" } },
+    ] } });
+    const result = await handler(request);
+    const hits = result.content.filter((item: any) => item.text.includes('message: "same"'));
+    expect(hits).toHaveLength(2);
+    expect(hits[0].text).toContain('_index: "east:orders-000001"');
+    expect(hits[0].text).toContain('_id: "42"');
+    expect(hits[1].text).toContain('_index: "west:orders-000001"');
+    expect(hits[1].text).toContain('_id: "84"');
+  });
+});
 
 describe("es_search mapping lookup", () => {
   it("highlights when mappings are available", async () => {
