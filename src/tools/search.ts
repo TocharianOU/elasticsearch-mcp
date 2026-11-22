@@ -12,7 +12,7 @@ import {
   rewriteDslFields,
 } from "../lint/query-lint.js";
 import { adviseOnIndexName, enrichIndexError } from "../lint/index-conventions.js";
-import { unwrapEsResponse, extractMappingProperties } from "../es-response.js";
+import { unwrapEsResponse, extractMappingProperties, esErrorMentions } from "../es-response.js";
 
 export function registerSearch(
   server: McpServer,
@@ -24,7 +24,7 @@ export function registerSearch(
   // Tool 3: Search an index with simplified parameters
   server.tool(
     "es_search",
-    "Perform an Elasticsearch search with the provided query DSL. Highlights are always enabled. " +
+    "Perform an Elasticsearch search with the provided query DSL. Highlighting is enabled when mappings are available. " +
     "Field names are validated against the index's real field_caps before execution: " +
     "unambiguous mistakes (e.g. a spurious .keyword suffix on ECS/built-in mappings) are auto-fixed, " +
     "unknown fields return suggestions instead of running a doomed query. " +
@@ -98,22 +98,41 @@ export function registerSearch(
         }
       }
       try {
-        // Get mappings to identify text fields for highlighting
-        const mappingResponse = unwrapEsResponse<Record<string, any>>(
-          await esClient.indices.getMapping({
-            index,
-          })
-        );
-
-        const properties = extractMappingProperties(mappingResponse[index]?.mappings);
+        // Remote clusters may support search but reject cross-cluster mapping lookup.
+        let properties: ReturnType<typeof extractMappingProperties> | undefined = undefined;
+        try {
+          const mappingResponse = unwrapEsResponse<Record<string, any>>(
+            await esClient.indices.getMapping({ index })
+          );
+          properties = extractMappingProperties(mappingResponse[index]?.mappings);
+        } catch (error) {
+          if (!esErrorMentions(error, "Cross-cluster calls are not supported")) throw error;
+          try {
+            liveFields = liveFields ?? (fieldCaps ? await fieldCaps.getFields(index) : null);
+            if (liveFields?.size) {
+              properties = Object.fromEntries(
+                [...liveFields].filter(([, info]) =>
+                  info.searchable && info.types.every((type) => type === "text" || type === "match_only_text")
+                ).map(([name]) => [name, { type: "text" }])
+              );
+            }
+          } catch {
+            // Field capabilities are optional for search as well.
+          }
+          lintNotes.push(properties && Object.keys(properties).length
+            ? "Remote mapping lookup unavailable; highlighting uses field capabilities."
+            : "Remote mapping lookup unavailable; searching without automatic highlighting.");
+        }
 
         const bodyFields: Record<string, unknown> = {
           ...queryBody,
-          timeout: '30s' // Set timeout for specific queries
+          // Keep the bounded default, but respect the caller's search timeout.
+          // The client's transport timeout remains a separate limit.
+          timeout: queryBody.timeout ?? '30s'
         };
 
-        // Always do highlighting
-        if (properties) {
+        // Highlight only when mappings are available
+        if (properties && Object.keys(properties).length && !bodyFields.highlight) {
           const textFields: Record<string, estypes.SearchHighlightField> = {};
 
           for (const [fieldName, fieldData] of Object.entries(
@@ -144,6 +163,17 @@ export function registerSearch(
           await esClient.search(searchRequest)
         );
 
+        // Results can be incomplete even when Elasticsearch returns HTTP 200.
+        const clusters = result._clusters;
+        if (result.timed_out) lintNotes.push("Warning: search timed out; results may be incomplete.");
+        if (result._shards?.failed) lintNotes.push(`Warning: ${result._shards.failed} shard(s) failed; results may be incomplete.`);
+        if (clusters?.skipped || clusters?.partial || clusters?.failed) {
+          lintNotes.push(`Warning: remote clusters skipped=${clusters.skipped ?? 0}, partial=${clusters.partial ?? 0}, failed=${clusters.failed ?? 0}; results may be incomplete.`);
+        }
+        if (typeof result.hits.total === "object" && result.hits.total?.relation === "gte") {
+          lintNotes.push("Warning: total results is a lower bound.");
+        }
+
         // Extract the 'from' parameter from queryBody, defaulting to 0 if not provided
         const from = queryBody.from || 0;
 
@@ -152,6 +182,11 @@ export function registerSearch(
           const sourceData = hit._source || {};
 
           let content = "";
+
+          // Preserve hit identity when searching aliases, multiple indices, or
+          // remote clusters; these values are metadata, not part of _source.
+          if (hit._index !== undefined) content += `_index: ${JSON.stringify(hit._index)}\n`;
+          if (hit._id !== undefined) content += `_id: ${JSON.stringify(hit._id)}\n`;
 
           for (const [field, highlights] of Object.entries(highlightedFields)) {
             if (highlights && highlights.length > 0) {
@@ -162,9 +197,15 @@ export function registerSearch(
           }
 
           for (const [field, value] of Object.entries(sourceData)) {
-            if (!(field in highlightedFields)) {
-              content += `${field}: ${JSON.stringify(value)}\n`;
-            }
+            content += `${field}: ${JSON.stringify(value)}\n`;
+          }
+
+          // fields/docvalue_fields/stored_fields/script_fields return values
+          // under hit.fields, including when _source is disabled. Keep that
+          // object separate so arrays and formatted values are not confused
+          // with the original source values for the same field names.
+          if (hit.fields && Object.keys(hit.fields).length > 0) {
+            content += `fields: ${JSON.stringify(hit.fields)}\n`;
           }
 
           return {
@@ -178,7 +219,7 @@ export function registerSearch(
           text: `Total results: ${
             typeof result.hits.total === "number"
               ? result.hits.total
-              : result.hits.total?.value || 0
+              : result.hits.total?.value ?? "unknown"
           }, showing ${result.hits.hits.length} from position ${from}`,
         };
 
