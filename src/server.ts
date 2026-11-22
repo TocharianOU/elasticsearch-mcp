@@ -146,7 +146,7 @@ export async function createElasticsearchMcpServer(
   // Step 6: Create MCP server
   const server = new McpServer({
     name: "elasticsearch-mcp",
-    version: "0.9.2",
+    version: "0.10.0",
   });
 
   // Step 7: Conditional tool registration
